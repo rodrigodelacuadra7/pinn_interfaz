@@ -1,0 +1,25 @@
+services:
+  pinn-web:
+    build: .
+    image: pinn-web:local
+    container_name: pinn-web
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    environment:
+      - DJANGO_DEBUG=0
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-dev-only-change-me-in-prod}
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+      - CSRF_TRUSTED_ORIGINS=http://localhost:${HOST_PORT:-8000}
+      - MODEL_PATH=/models/model_fase2_seed2718.pt
+      - SCALERS_PATH=/models/scalers_trial16.pkl
+    volumes:
+      # Monta los archivos del modelo desde la raíz del repo (read-only)
+      - ../model_fase2_seed2718.pt:/models/model_fase2_seed2718.pt:ro
+      - ../scalers_trial16.pkl:/models/scalers_trial16.pkl:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

@@ -1,0 +1,42 @@
+# ── Carpetas de referencia y diseño ──────────────────────────
+references/
+Interfaz-handoff/
+
+# ── Variables de entorno y secretos ──────────────────────────
+.env
+web/.env
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+.venv/
+venv/
+env/
+.Python
+
+# ── Jupyter Notebook ─────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Django ───────────────────────────────────────────────────
+web/staticfiles/
+web/db.sqlite3
+
+# ── Docker ───────────────────────────────────────────────────
+# (docker-compose.yml y Dockerfile sí se suben)
+
+# ── Editores e IDEs ──────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Sistema operativo ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Claude Code ──────────────────────────────────────────────
+.claude/
