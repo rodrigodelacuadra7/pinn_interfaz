@@ -233,33 +233,11 @@
           </div>
 
           <div class="viz-controls">
-            <button class="vc-btn" data-view="front" onclick="setView('front')">FRONTAL</button>
-            <button class="vc-btn active" data-view="iso" onclick="setView('iso')">ISO</button>
-            <button class="vc-btn" data-view="top" onclick="setView('top')">PLANTA</button>
+            <span class="vc-btn active">ISO</span>
           </div>
 
           <!-- Three.js canvas mount point -->
           <div id="building-canvas" style="width:480px;height:480px;position:relative;"></div>
-
-          <div class="seismic-arrow">
-            <span>üg(t)</span>
-            <span class="bar"></span>
-          </div>
-
-          <div class="play-controls">
-            <button title="Reiniciar" onclick="resetAnim()">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 1v8M8 1L2 5l6 4z" stroke="currentColor" stroke-width="1"/></svg>
-            </button>
-            <button id="play-btn" title="Reproducir/Pausar" onclick="togglePlay()">
-              <svg id="icon-pause" width="10" height="10" viewBox="0 0 10 10"><rect x="2" y="1" width="2" height="8" fill="currentColor"/><rect x="6" y="1" width="2" height="8" fill="currentColor"/></svg>
-              <svg id="icon-play" width="10" height="10" viewBox="0 0 10 10" style="display:none"><path d="M2 1v8l7-4z" fill="currentColor"/></svg>
-            </button>
-            <div class="time">t = <b id="time-display">0.00</b>s / 12.00s</div>
-            <div class="scrub" id="scrub" onclick="scrubClick(event)">
-              <div class="fill" id="scrub-fill" style="width:0%"></div>
-              <div class="head" id="scrub-head" style="left:0%"></div>
-            </div>
-          </div>
         </div><!-- /viewport -->
 
         <!-- Bottom charts -->

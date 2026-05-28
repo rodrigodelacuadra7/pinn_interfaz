@@ -30,6 +30,13 @@ def api_predict(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'JSON inválido'}, status=400)
 
+    # JSON serializa 7.0 como 7 (entero). Django convierte a str antes de validar
+    # choices, entonces "7" != "7.0". Normalizamos los campos float para que
+    # str(7.0) == "7.0" coincida con la clave del choice.
+    _FLOAT_CHOICE_FIELDS = {'gk_kN_m2', 'h_story_m', 't_muro_nucleo_m', 't_muro_borde_m', 't_muro_mid_m'}
+    body = {k: (float(v) if k in _FLOAT_CHOICE_FIELDS and isinstance(v, int) else v)
+            for k, v in body.items()}
+
     form = EdificioForm(body)
     if not form.is_valid():
         return JsonResponse({'error': form.errors}, status=400)
