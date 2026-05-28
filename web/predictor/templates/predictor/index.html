@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+{% load static %}
+<head>
+<meta charset="UTF-8" />
+<title>Modal PINN · NCH433</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{% static 'predictor/css/styles.css' %}" />
+</head>
+<body>
+{% csrf_token %}
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div class="name">MODAL<span>·</span>PINN</div>
+    </div>
+    <div class="crumbs">
+      NCH433.Of1996.Mod.2009 &nbsp;/&nbsp; <b>Análisis Modal Espectral</b> &nbsp;/&nbsp; Familia B
+    </div>
+    <div class="spacer"></div>
+    <div class="meta">
+      <div><span class="dot"></span>MODELO ACTIVO · PINNModal_v4b</div>
+      <div>seed <b style="color:var(--text)">2718</b></div>
+      <div id="device-label">CPU</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- LEFT COL — parámetros del edificio -->
+    <div class="col left" id="left-col">
+
+      <!-- Sección 01: Configuración sísmica -->
+      <div class="section">
+        <h3>Configuración sísmica <span class="num">01</span></h3>
+
+        <div class="field" style="margin-bottom:10px">
+          <label>Zona Sísmica</label>
+          <div class="seg" id="seg-zona">
+            <button class="seg-btn" data-field="zona" data-value="1">Z1</button>
+            <button class="seg-btn active" data-field="zona" data-value="2">Z2</button>
+            <button class="seg-btn" data-field="zona" data-value="3">Z3</button>
+          </div>
+          <div class="muted" id="zona-desc" style="margin-top:6px">A₀ = 0.30g · Cordillera</div>
+          <input type="hidden" id="field-zona" value="2" />
+        </div>
+
+        <div class="field">
+          <label>Tipo de Suelo</label>
+          <div class="seg" id="seg-suelo">
+            <button class="seg-btn" data-field="suelo" data-value="A">A</button>
+            <button class="seg-btn" data-field="suelo" data-value="B">B</button>
+            <button class="seg-btn active" data-field="suelo" data-value="C">C</button>
+            <button class="seg-btn" data-field="suelo" data-value="D">D</button>
+          </div>
+          <div class="muted" id="suelo-desc" style="margin-top:6px">Suelo firme · T₀=0.40s · S=1.05</div>
+          <input type="hidden" id="field-suelo" value="C" />
+        </div>
+      </div>
+
+      <!-- Sección 02: Geometría global -->
+      <div class="section">
+        <h3>Geometría global <span class="num">02</span></h3>
+        <div class="row">
+          <div class="field">
+            <label>N° Pisos <span class="range-hint">[6–18]</span></label>
+            <input class="input" type="number" id="field-N_pisos" min="6" max="18" value="{{ defaults.N_pisos }}" />
+          </div>
+          <div class="field">
+            <label>Unid/lado <span class="range-hint">[2–6]</span></label>
+            <input class="input" type="number" id="field-n_unid_lado" min="2" max="6" value="{{ defaults.n_unid_lado }}" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Bloque B2</label>
+          <div class="seg">
+            <button class="seg-btn active" data-field="activar_B2" data-value="1">Sí</button>
+            <button class="seg-btn" data-field="activar_B2" data-value="0">No</button>
+          </div>
+          <input type="hidden" id="field-activar_B2" value="1" />
+        </div>
+      </div>
+
+      <!-- Sección 03: Dimensiones modulares -->
+      <div class="section">
+        <h3>Dimensiones modulares <span class="num">03</span></h3>
+        <div class="row">
+          <div class="field">
+            <label>L módulo <span class="range-hint">[3.20–3.80]</span></label>
+            <input class="input" type="number" id="field-L_mod_m" min="3.20" max="3.80" step="0.05" value="{{ defaults.L_mod_m }}" />
+          </div>
+          <div class="field">
+            <label>Prof depto <span class="range-hint">[7.00–7.90]</span></label>
+            <input class="input" type="number" id="field-prof_depto_m" min="7.00" max="7.90" step="0.10" value="{{ defaults.prof_depto_m }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Corredor <span class="range-hint">[1.50–1.90]</span></label>
+            <input class="input" type="number" id="field-ancho_corredor_m" min="1.50" max="1.90" step="0.05" value="{{ defaults.ancho_corredor_m }}" />
+          </div>
+          <div class="field">
+            <label>H entrepiso</label>
+            <select class="input" id="field-h_story_m">
+              <option value="2.60">2.60 m</option>
+              <option value="2.70" selected>2.70 m</option>
+              <option value="2.80">2.80 m</option>
+              <option value="2.90">2.90 m</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 04: Núcleo y materiales -->
+      <div class="section">
+        <h3>Núcleo y materiales <span class="num">04</span></h3>
+        <div class="row">
+          <div class="field">
+            <label>L núcleo <span class="range-hint">[5.40–6.60]</span></label>
+            <input class="input" type="number" id="field-L_nucleo_m" min="5.40" max="6.60" step="0.10" value="{{ defaults.L_nucleo_m }}" />
+          </div>
+          <div class="field">
+            <label>B núcleo <span class="range-hint">[4.00–5.00]</span></label>
+            <input class="input" type="number" id="field-B_nucleo_m" min="4.00" max="5.00" step="0.10" value="{{ defaults.B_nucleo_m }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>fc [MPa]</label>
+            <div class="seg">
+              <button class="seg-btn" data-field="fc_MPa" data-value="25">25</button>
+              <button class="seg-btn active" data-field="fc_MPa" data-value="30">30</button>
+              <button class="seg-btn" data-field="fc_MPa" data-value="35">35</button>
+              <button class="seg-btn" data-field="fc_MPa" data-value="40">40</button>
+            </div>
+            <input type="hidden" id="field-fc_MPa" value="30" />
+          </div>
+        </div>
+        <div class="field" style="margin-top:8px">
+          <label>gk [kN/m²]</label>
+          <div class="seg">
+            <button class="seg-btn" data-field="gk_kN_m2" data-value="6.0">6.0</button>
+            <button class="seg-btn" data-field="gk_kN_m2" data-value="6.5">6.5</button>
+            <button class="seg-btn active" data-field="gk_kN_m2" data-value="7.0">7.0</button>
+            <button class="seg-btn" data-field="gk_kN_m2" data-value="7.5">7.5</button>
+          </div>
+          <input type="hidden" id="field-gk_kN_m2" value="7.0" />
+        </div>
+      </div>
+
+      <!-- Sección 05: Espesores de muros -->
+      <div class="section" style="flex:1; display:flex; flex-direction:column; justify-content:space-between">
+        <div>
+          <h3>Espesores de muros <span class="num">05</span></h3>
+          <div class="field" style="margin-bottom:10px">
+            <label>Núcleo</label>
+            <div class="seg">
+              <button class="seg-btn" data-field="t_muro_nucleo_m" data-value="0.18">18</button>
+              <button class="seg-btn" data-field="t_muro_nucleo_m" data-value="0.20">20</button>
+              <button class="seg-btn" data-field="t_muro_nucleo_m" data-value="0.22">22</button>
+              <button class="seg-btn active" data-field="t_muro_nucleo_m" data-value="0.25">25</button>
+              <button class="seg-btn" data-field="t_muro_nucleo_m" data-value="0.28">28</button>
+              <button class="seg-btn" data-field="t_muro_nucleo_m" data-value="0.30">30</button>
+            </div>
+            <input type="hidden" id="field-t_muro_nucleo_m" value="0.25" />
+          </div>
+          <div class="field" style="margin-bottom:10px">
+            <label>Borde</label>
+            <div class="seg">
+              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.18">18</button>
+              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.20">20</button>
+              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.22">22</button>
+              <button class="seg-btn active" data-field="t_muro_borde_m" data-value="0.25">25</button>
+              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.28">28</button>
+              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.30">30</button>
+            </div>
+            <input type="hidden" id="field-t_muro_borde_m" value="0.25" />
+          </div>
+          <div class="field">
+            <label>Interior</label>
+            <div class="seg">
+              <button class="seg-btn" data-field="t_muro_mid_m" data-value="0.15">15</button>
+              <button class="seg-btn" data-field="t_muro_mid_m" data-value="0.18">18</button>
+              <button class="seg-btn active" data-field="t_muro_mid_m" data-value="0.20">20</button>
+              <button class="seg-btn" data-field="t_muro_mid_m" data-value="0.22">22</button>
+              <button class="seg-btn" data-field="t_muro_mid_m" data-value="0.25">25</button>
+            </div>
+            <input type="hidden" id="field-t_muro_mid_m" value="0.20" />
+          </div>
+        </div>
+
+        <!-- Botón Predecir -->
+        <div style="margin-top:16px">
+          <div id="form-error" class="form-error" style="display:none"></div>
+          <button class="predict-btn" id="predict-btn" onclick="runPredict()">
+            <span id="predict-label">▶ PREDECIR</span>
+            <span id="predict-spinner" style="display:none">■ CALCULANDO…</span>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- CENTER -->
+    <div class="col center">
+      <div class="center-grid">
+
+        <!-- Viewport 3D -->
+        <div class="viewport" id="viewport">
+          <div class="grid-bg"></div>
+
+          <div class="topleft">
+            <div class="corner">VISTA <b id="view-label">ISOMÉTRICA</b></div>
+            <div class="corner" style="margin-top:4px">MODO <b id="mode-label">—</b> · T = <b id="T-label">—</b></div>
+          </div>
+
+          <div class="topright">
+            <div class="corner">PINN OUTPUT</div>
+            <div class="corner" style="margin-top:4px">u_max <b id="umax-label">—</b></div>
+            <div class="corner" style="margin-top:2px">drift <b id="drift-label">—</b></div>
+          </div>
+
+          <div class="bottomright">
+            <div class="corner" id="verdict-corner" style="display:none">
+              VEREDICTO: <b id="verdict-label">—</b>
+            </div>
+          </div>
+
+          <div class="viz-controls">
+            <button class="vc-btn" data-view="front" onclick="setView('front')">FRONTAL</button>
+            <button class="vc-btn active" data-view="iso" onclick="setView('iso')">ISO</button>
+            <button class="vc-btn" data-view="top" onclick="setView('top')">PLANTA</button>
+          </div>
+
+          <!-- Three.js canvas mount point -->
+          <div id="building-canvas" style="width:480px;height:480px;position:relative;"></div>
+
+          <div class="seismic-arrow">
+            <span>üg(t)</span>
+            <span class="bar"></span>
+          </div>
+
+          <div class="play-controls">
+            <button title="Reiniciar" onclick="resetAnim()">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 1v8M8 1L2 5l6 4z" stroke="currentColor" stroke-width="1"/></svg>
+            </button>
+            <button id="play-btn" title="Reproducir/Pausar" onclick="togglePlay()">
+              <svg id="icon-pause" width="10" height="10" viewBox="0 0 10 10"><rect x="2" y="1" width="2" height="8" fill="currentColor"/><rect x="6" y="1" width="2" height="8" fill="currentColor"/></svg>
+              <svg id="icon-play" width="10" height="10" viewBox="0 0 10 10" style="display:none"><path d="M2 1v8l7-4z" fill="currentColor"/></svg>
+            </button>
+            <div class="time">t = <b id="time-display">0.00</b>s / 12.00s</div>
+            <div class="scrub" id="scrub" onclick="scrubClick(event)">
+              <div class="fill" id="scrub-fill" style="width:0%"></div>
+              <div class="head" id="scrub-head" style="left:0%"></div>
+            </div>
+          </div>
+        </div><!-- /viewport -->
+
+        <!-- Bottom charts -->
+        <div class="bottom-charts">
+          <div>
+            <h3>
+              Derivas de entrepiso
+              <div class="legends">
+                <span><i style="background:var(--accent)"></i>δx</span>
+                <span><i style="background:var(--danger)"></i>δy</span>
+                <span><i style="background:var(--warn);opacity:.7"></i>Límite</span>
+              </div>
+            </h3>
+            <div class="chart-host">
+              <svg id="drift-chart" class="chart" viewBox="0 0 420 160" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+          <div>
+            <h3>
+              Espectro NCH433
+              <div class="legends" id="spectrum-legend">
+                <span>Z2 · suelo C</span>
+              </div>
+            </h3>
+            <div class="chart-host">
+              <svg id="spectrum-chart" class="chart" viewBox="0 0 320 160" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+        </div><!-- /bottom-charts -->
+
+      </div>
+    </div><!-- /center -->
+
+    <!-- RIGHT COL -->
+    <div class="col right">
+
+      <!-- KPIs -->
+      <div class="section">
+        <h3>Outputs PINN <span class="num">06</span></h3>
+        <div class="kpi">
+          <div class="cell accent">
+            <div class="lbl">T₁ fundamental</div>
+            <div class="v" id="kpi-T1">—<span class="u">s</span></div>
+          </div>
+          <div class="cell">
+            <div class="lbl">T₂</div>
+            <div class="v" id="kpi-T2">—<span class="u">s</span></div>
+          </div>
+          <div class="cell">
+            <div class="lbl">u_max techo</div>
+            <div class="v" id="kpi-umax">—<span class="u">cm</span></div>
+          </div>
+          <div class="cell">
+            <div class="lbl">drift máx</div>
+            <div class="v" id="kpi-drift">—<span class="u">‰</span></div>
+          </div>
+          <div class="cell">
+            <div class="lbl">Vb,x</div>
+            <div class="v" id="kpi-vbx">—<span class="u">kN</span></div>
+          </div>
+          <div class="cell">
+            <div class="lbl">Vb,y</div>
+            <div class="v" id="kpi-vby">—<span class="u">kN</span></div>
+          </div>
+        </div>
+        <!-- Veredicto NCh433 -->
+        <div id="verdict-banner" style="display:none; padding:10px 12px; border:1px solid var(--border); background:var(--panel-2); margin-top:4px">
+          <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color:var(--mute)">VEREDICTO NCH433</div>
+          <div id="verdict-text" style="font-family:var(--mono); font-size:20px; font-weight:600; margin-top:4px">—</div>
+          <div id="verdict-sub" style="font-family:var(--mono); font-size:9px; color:var(--mute); margin-top:4px; line-height:1.6"></div>
+        </div>
+      </div>
+
+      <!-- Tabla de modos -->
+      <div class="section">
+        <h3>Modos predichos <span class="num">07</span></h3>
+        <table class="modes-table" id="modes-table">
+          <thead>
+            <tr>
+              <th>n</th><th>T [s]</th><th>f [Hz]</th><th class="num">ω [rad/s]</th>
+            </tr>
+          </thead>
+          <tbody id="modes-tbody">
+            <tr><td colspan="4" style="color:var(--mute); text-align:center; padding:16px 8px">Ejecuta una predicción</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mini formas modales -->
+      <div class="section">
+        <h3>Formas modales φₙ <span class="num">08</span></h3>
+        <div id="mode-shapes" style="display:grid; grid-template-columns:repeat(6,1fr); gap:4px">
+          <!-- se rellena por JS -->
+          <div style="color:var(--mute); font-family:var(--mono); font-size:9px; grid-column:1/-1; text-align:center; padding:8px">—</div>
+        </div>
+      </div>
+
+      <!-- Perfil de desplazamientos -->
+      <div class="section" style="flex:1; display:flex; flex-direction:column">
+        <h3>Desplazamientos por piso <span class="num">09</span></h3>
+        <div class="chart-wrap" style="flex:1; display:flex; flex-direction:column">
+          <div class="title">
+            Ux / Uy vs piso
+            <div class="legend pred">
+              <i style="background:var(--accent)"></i>Ux
+            </div>
+            <div class="legend" style="margin-left:8px">
+              <i style="background:var(--danger)"></i>Uy
+            </div>
+          </div>
+          <div style="flex:1; min-height:100px; position:relative">
+            <svg id="disp-chart" class="chart" viewBox="0 0 310 130" preserveAspectRatio="none"></svg>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /right -->
+
+  </div><!-- /main -->
+
+  <!-- STATUS BAR -->
+  <div class="statusbar">
+    <div class="item">PINN · <span class="ok" id="status-pinn">EN ESPERA</span></div>
+    <div class="item">modelo · <b>PINNModal_v4b · seed 2718</b></div>
+    <div class="item">framework · <b>PyTorch · Django</b></div>
+    <div class="spacer"></div>
+    <div class="item" id="status-tiempo" style="display:none">t=<b id="status-t">0.00</b>s</div>
+    <div class="item" id="status-modo" style="display:none">modo <b id="status-m">1</b></div>
+    <div class="item"><span class="ok" id="status-ok">●</span> <span id="status-msg">LISTO</span></div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Three.js from CDN -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+<script src="{% static 'predictor/js/charts.js' %}"></script>
+<script src="{% static 'predictor/js/building3d.js' %}"></script>
+<script src="{% static 'predictor/js/app.js' %}"></script>
+
+</body>
+</html>
