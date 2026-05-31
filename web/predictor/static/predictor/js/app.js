@@ -123,12 +123,10 @@
       }
 
       state = data;
-      state._cache_3d = null;
-      state._cache_planta = null;
       activeMode = 0;
       _updateAll(data);
       _setStatus('ACTIVO', true);
-      // Habilitar vistas Plotly una vez que hay predicción
+      // Habilitar botones 3D y PLANTA (requieren geometría del predict)
       document.querySelectorAll('[data-needs-predict]').forEach(function (b) { b.disabled = false; });
 
     } catch (err) {
@@ -147,7 +145,7 @@
     const { modal, respuesta, normativa, spectrum, geometria, params, avisos, extrapolando } = data;
 
     // Three.js
-    Building3D.update(modal, geometria, params);
+    Building3D.update(modal, geometria, data.geometria_real || {walls:[], corridor:{}}, params);
     Building3D.setMode(activeMode);
 
     // KPIs
@@ -302,70 +300,16 @@
     Building3D.scrubTo(pct);
   };
 
-  // ---- Vista 3D / Plotly ----
-  window.setView = async function (view) {
+  // ---- Cambio de vista (Three.js puro, sin fetch) ----
+  window.setView = function (view) {
     if (view !== 'iso' && !state) return;
-
     document.querySelectorAll('.vc-btn').forEach(b => b.classList.remove('active'));
     const activeBtn = document.querySelector(`.vc-btn[data-view="${view}"]`);
     if (activeBtn) activeBtn.classList.add('active');
-
-    const canvas = document.getElementById('building-canvas');
-    const plotly = document.getElementById('plotly-view');
-    const loader = document.getElementById('plotly-loader');
-
-    if (view === 'iso') {
-      canvas.style.display = '';
-      plotly.style.display = 'none';
-      _setText('view-label', 'ISOMÉTRICA');
-      return;
-    }
-
-    // Vista Plotly (3D o PLANTA) — lazy fetch con caché
-    canvas.style.display = 'none';
-    plotly.style.display = '';
-    _setText('view-label', view === '3d' ? '3D PLOTLY' : 'PLANTA');
-
-    const cacheKey = view === '3d' ? '_cache_3d' : '_cache_planta';
-    if (state[cacheKey]) {
-      plotly.innerHTML = state[cacheKey];
-      _evalEmbeddedScripts(plotly);
-      return;
-    }
-
-    loader.style.display = 'flex';
-    const endpoint = view === '3d' ? '/api/view/3d' : '/api/view/planta';
-    const body = Object.assign({}, state.params);
-    if (view === '3d') {
-      body._T1    = state.modal.T[0];
-      body._cumple = state.normativa.veredicto === 'CUMPLE';
-    }
-
-    try {
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrfToken() },
-        body: JSON.stringify(body),
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
-      state[cacheKey] = data.html;
-      plotly.innerHTML = data.html;
-      _evalEmbeddedScripts(plotly);
-    } catch (err) {
-      plotly.innerHTML = `<div style="padding:20px;color:var(--danger);font-family:var(--mono);font-size:11px;">${err.message}</div>`;
-    } finally {
-      loader.style.display = 'none';
-    }
+    Building3D.setViewMode(view);
+    const labels = { iso: 'ISOMÉTRICA', '3d': '3D REAL', planta: 'PLANTA' };
+    _setText('view-label', labels[view] || view.toUpperCase());
   };
-
-  function _evalEmbeddedScripts(container) {
-    container.querySelectorAll('script').forEach(function (old) {
-      const s = document.createElement('script');
-      if (old.src) s.src = old.src; else s.textContent = old.textContent;
-      old.replaceWith(s);
-    });
-  }
 
   // ---- Helpers ----
   function _setText(id, val) {

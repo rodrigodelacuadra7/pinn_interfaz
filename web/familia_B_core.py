@@ -4,8 +4,13 @@
 # ============================================================
 
 import numpy as np
-import pandas as pd
 from pprint import pprint
+
+try:
+    import pandas as pd
+    _PANDAS = True
+except ImportError:
+    _PANDAS = False
 
 try:
     import matplotlib.pyplot as plt
