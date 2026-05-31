@@ -1,0 +1,20 @@
+# Forzar LF en scripts de shell para que Docker (Linux) los ejecute correctamente
+*.sh text eol=lf
+
+# Archivos de texto normales: normalizar a LF en el repo
+*.py text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Binarios: no tocar
+*.pt binary
+*.pkl binary
+*.png binary
+*.jpg binary
+*.ico binary
