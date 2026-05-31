@@ -2,3 +2,5 @@ Django>=4.2,<5.0
 numpy
 gunicorn
 whitenoise
+plotly>=5.20,<6.0
+pandas>=2.0

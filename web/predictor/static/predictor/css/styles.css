@@ -309,6 +309,8 @@ select.input { cursor: pointer; }
 }
 .vc-btn:hover { color: var(--text); background: var(--panel-2); }
 .vc-btn.active { color: var(--accent); background: var(--accent-bg); }
+.vc-btn[disabled] { opacity: 0.35; cursor: not-allowed; }
+.vc-btn[disabled]:hover { color: var(--text-2); background: transparent; }
 
 .seismic-arrow {
   position: absolute;

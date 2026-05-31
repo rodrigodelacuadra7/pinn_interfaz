@@ -233,11 +233,16 @@
           </div>
 
           <div class="viz-controls">
-            <span class="vc-btn active">ISO</span>
+            <button class="vc-btn active" data-view="iso" onclick="setView('iso')">ISO</button>
+            <button class="vc-btn" data-view="3d" data-needs-predict onclick="setView('3d')" disabled>3D</button>
+            <button class="vc-btn" data-view="planta" data-needs-predict onclick="setView('planta')" disabled>PLANTA</button>
           </div>
 
           <!-- Three.js canvas mount point -->
           <div id="building-canvas" style="width:480px;height:480px;position:relative;"></div>
+          <!-- Plotly views (alternativo al canvas Three.js) -->
+          <div id="plotly-view" style="width:480px;height:480px;display:none;overflow:auto;background:#fff;"></div>
+          <div id="plotly-loader" style="display:none;position:absolute;inset:0;background:rgba(10,14,20,0.7);z-index:20;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:0.1em;">CARGANDO…</div>
         </div><!-- /viewport -->
 
         <!-- Bottom charts -->
