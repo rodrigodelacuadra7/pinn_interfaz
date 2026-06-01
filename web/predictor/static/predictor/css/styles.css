@@ -537,10 +537,25 @@ select.input { cursor: pointer; }
   position: relative;
 }
 
-/* mode shape thumbnails */
+/* mode shape thumbnails — contenedor con scroll horizontal */
+.mode-shapes-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+}
+.mode-shapes-scroll::-webkit-scrollbar { height: 4px; }
+.mode-shapes-scroll::-webkit-scrollbar-track { background: var(--bg); }
+.mode-shapes-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.mode-shapes-scroll::-webkit-scrollbar-thumb:hover { background: var(--mute); }
+
 .mode-thumb {
   text-align: center;
   cursor: pointer;
+  flex-shrink: 0;
+  scroll-snap-align: start;
 }
 .mode-thumb .thumb-border {
   border: 1px solid var(--border);

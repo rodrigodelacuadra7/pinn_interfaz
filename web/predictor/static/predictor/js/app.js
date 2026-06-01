@@ -235,7 +235,7 @@
     const container = document.getElementById('mode-shapes');
     if (!container) return;
     container.innerHTML = '';
-    const nShow = Math.min(6, modal.T.length);
+    const nShow = modal.T.length;
     for (let i = 0; i < nShow; i++) {
       const phi = modal.Phi_x.map(row => row[i]);
       const T = modal.T[i];
