@@ -270,6 +270,9 @@
     activeMode = idx;
     Building3D.setMode(idx);
 
+    // Cambiar a ISO para que la animación modal sea visible
+    setView('iso');
+
     if (state) {
       const T = state.modal.T[idx];
       _setText('T-label', T.toFixed(3) + 's');
