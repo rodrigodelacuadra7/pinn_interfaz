@@ -154,15 +154,15 @@
     const umax = respuesta.Ux_por_piso[respuesta.Ux_por_piso.length - 1];
     _setText('kpi-umax', (umax * 100).toFixed(2));
     const driftMax = Math.max(Math.max(...respuesta.dx_por_piso), Math.max(...respuesta.dy_por_piso));
-    _setText('kpi-drift', (driftMax * 1000).toFixed(2));
-    _setText('kpi-vbx', (respuesta.Vb_x / 1000).toFixed(0));
-    _setText('kpi-vby', (respuesta.Vb_y / 1000).toFixed(0));
+    _setText('kpi-drift', (driftMax * 100).toFixed(3));
+    _setText('kpi-vbx', (respuesta.Vb_x / 1000).toFixed(2));
+    _setText('kpi-vby', (respuesta.Vb_y / 1000).toFixed(2));
 
     // Viewport labels
     _setText('T-label', modal.T[activeMode].toFixed(3) + 's');
     _setText('mode-label', (activeMode + 1).toString());
     _setText('umax-label', (umax * 100).toFixed(2) + ' cm');
-    _setText('drift-label', (driftMax * 1000).toFixed(2) + ' ‰');
+    _setText('drift-label', (driftMax * 100).toFixed(3) + ' %');
 
     // Veredicto
     const verdBanner = document.getElementById('verdict-banner');
@@ -196,7 +196,10 @@
 
     // Leyenda espectro
     const legEl = document.getElementById('spectrum-legend');
-    if (legEl) legEl.textContent = `Z${params.zona} · suelo ${params.suelo}`;
+    if (legEl) {
+      const rstar = spectrum && spectrum.Rstar ? ` · R*=${spectrum.Rstar.toFixed(2)}` : '';
+      legEl.textContent = `Z${params.zona} · suelo ${params.suelo}${rstar}`;
+    }
 
     // Avisos
     if (avisos && avisos.length) {

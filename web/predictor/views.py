@@ -82,7 +82,8 @@ def api_predict(request):
         model, SC, device = get_model_and_scalers()
         res      = predict_edificio(params, model, SC, device)
         rep      = reporte_normativo(res)
-        spectrum = espectro_nch433(params['zona'], params['suelo'])
+        T1       = float(res['modal']['T'][0])
+        spectrum = espectro_nch433(params['zona'], params['suelo'], T_star=T1)
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 

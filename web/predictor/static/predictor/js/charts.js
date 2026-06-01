@@ -82,16 +82,51 @@
     svg.appendChild(lb);
   }
 
-  // ---- Espectro NCh433 ----
-  function drawSpectrum(svgId, points, periods) {
+  // ── Espectro NCh433 Mod.Of2012 + DS61 (cliente, traducción 1:1 del backend) ──
+  // Útil para calcular sin necesidad de llamar al API.
+  const _SOIL_PARAMS_JS = {
+    A: { S: 0.90, T0: 0.15, Tp: 0.20, n: 1.00 },
+    B: { S: 1.00, T0: 0.30, Tp: 0.35, n: 1.33 },
+    C: { S: 1.05, T0: 0.40, Tp: 0.45, n: 1.40 },
+    D: { S: 1.20, T0: 0.75, Tp: 0.85, n: 1.80 },
+  };
+  const _A0_ZONE = { 1: 0.20, 2: 0.30, 3: 0.40 };
+
+  function espectro_nch433(zona, suelo, T_star, T_max, n_pts) {
+    T_max = T_max || 4.0; n_pts = n_pts || 200;
+    const sp   = _SOIL_PARAMS_JS[String(suelo).toUpperCase()] || _SOIL_PARAMS_JS.C;
+    const A0   = _A0_ZONE[parseInt(zona)] || 0.30;
+    const { S, T0, Tp, n } = sp;
+    const Tstar = (T_star && T_star > 0) ? T_star : 0.5;
+    const den   = 0.10 * T0 + Tstar / (11.0 - 1.0);
+    const Rstar = 1.0 + Tstar / Math.max(den, 1e-9);
+    const Sa_min = S * A0 / 6.0, Sa_max = 0.35 * S * A0;
+    const Ts = [], Sa_e = [], Sa_d = [];
+    for (let i = 0; i < n_pts; i++) {
+      const T = 0.02 + (i / (n_pts - 1)) * (T_max - 0.02);
+      const x_  = Math.max(T, 0) / Tp;
+      const alpha = (1.0 + 4.5 * Math.pow(x_, n)) / (1.0 + Math.pow(x_, 3));
+      Ts.push(T);
+      Sa_e.push(S * A0 * alpha);
+      Sa_d.push(Math.max(Sa_min, Math.min(Sa_max, S * A0 * alpha / Rstar)));
+    }
+    return { T: Ts, Sa_elastic_g: Sa_e, Sa_design_g: Sa_d,
+             Sa_min_g: Sa_min, Sa_max_g: Sa_max, Rstar, A0_g: A0, S, T0, Tp };
+  }
+
+  // ---- Espectro NCh433 — dos curvas, límites y marcadores modales ----
+  function drawSpectrum(svgId, spec, periods) {
     const svg = document.getElementById(svgId);
     if (!svg) return;
     svg.innerHTML = '';
     const W = 320, H = 160;
     const pL = 36, pR = 10, pT = 8, pB = 22;
     const iW = W - pL - pR, iH = H - pT - pB;
-    const Tmax = 4.0;
-    const yMax = Math.max(...points.map(p => p[1])) * 1.15;
+    const Ts   = spec.T;
+    const Tmax = Ts[Ts.length - 1] || 4.0;
+
+    // Escala Y basada en la curva elástica (mayor que la de diseño)
+    const yMax = Math.max(...spec.Sa_elastic_g) * 1.15;
     const x = T => pL + (T / Tmax) * iW;
     const y = v => pT + iH - (v / yMax) * iH;
 
@@ -108,20 +143,50 @@
       svg.appendChild(t);
     });
 
-    // Fill área
-    const pathStr = _linePath(points, p => x(p[0]), p => y(p[1]));
-    const fillPath = `${pathStr} L ${x(Tmax)} ${y(0)} L ${x(0.02)} ${y(0)} Z`;
+    // Fill bajo curva de diseño
+    const designPts   = Ts.map((T, i) => [T, spec.Sa_design_g[i]]);
+    const designPath  = _linePath(designPts, p => x(p[0]), p => y(p[1]));
+    const fillPath    = `${designPath} L ${x(Ts[Ts.length - 1])} ${y(0)} L ${x(Ts[0])} ${y(0)} Z`;
     svg.appendChild(_svgEl('path', { d: fillPath, fill: 'oklch(0.82 0.16 155 / 0.06)' }));
-    svg.appendChild(_svgEl('path', { d: pathStr, stroke: C.accent, 'stroke-width': 1.4, fill: 'none' }));
 
-    // Marcas periodos
+    // Curva elástica — delgada, punteada, semitransparente
+    const elasticPts = Ts.map((T, i) => [T, spec.Sa_elastic_g[i]]);
+    svg.appendChild(_svgEl('path', {
+      d: _linePath(elasticPts, p => x(p[0]), p => y(p[1])),
+      stroke: C.info, 'stroke-width': 1.0, fill: 'none', 'stroke-dasharray': '3 2', opacity: 0.55,
+    }));
+
+    // Línea horizontal Sa_max
+    const yMax_line = y(spec.Sa_max_g);
+    if (yMax_line >= pT) {
+      svg.appendChild(_svgEl('line', { x1: pL, y1: yMax_line, x2: W - pR, y2: yMax_line, stroke: C.danger, 'stroke-dasharray': '2 3', 'stroke-width': 1, opacity: 0.65 }));
+      const tm = _svgEl('text', { x: W - pR - 2, y: yMax_line - 2, fill: C.danger, 'font-size': 7.5, 'font-family': 'IBM Plex Mono', 'text-anchor': 'end' });
+      tm.textContent = 'Saₘₐˣ';
+      svg.appendChild(tm);
+    }
+
+    // Línea horizontal Sa_min
+    const yMin_line = y(spec.Sa_min_g);
+    if (yMin_line <= H - pB) {
+      svg.appendChild(_svgEl('line', { x1: pL, y1: yMin_line, x2: W - pR, y2: yMin_line, stroke: C.warn, 'stroke-dasharray': '2 3', 'stroke-width': 1, opacity: 0.65 }));
+      const tm2 = _svgEl('text', { x: W - pR - 2, y: yMin_line + 9, fill: C.warn, 'font-size': 7.5, 'font-family': 'IBM Plex Mono', 'text-anchor': 'end' });
+      tm2.textContent = 'Saₘᴵⁿ';
+      svg.appendChild(tm2);
+    }
+
+    // Curva de diseño — principal
+    svg.appendChild(_svgEl('path', {
+      d: designPath, stroke: C.accent, 'stroke-width': 1.5, fill: 'none',
+    }));
+
+    // Marcadores de períodos sobre curva de diseño
     const modeColors = [C.accent, C.info, C.warn, '#6b7785', '#6b7785', '#6b7785'];
     (periods || []).slice(0, 6).forEach((T, i) => {
       if (T > Tmax) return;
-      const saAtT = points.find(p => p[0] >= T);
-      const cy = saAtT ? y(saAtT[1]) : y(0);
+      const idx = Ts.findIndex(t => t >= T);
+      const saD = idx >= 0 ? spec.Sa_design_g[idx] : spec.Sa_min_g;
       svg.appendChild(_svgEl('line', { x1: x(T), y1: pT, x2: x(T), y2: H - pB, stroke: modeColors[i], 'stroke-dasharray': '1 2', opacity: 0.7 }));
-      svg.appendChild(_svgEl('circle', { cx: x(T), cy, r: 2.5, fill: modeColors[i] }));
+      svg.appendChild(_svgEl('circle', { cx: x(T), cy: y(saD), r: 2.5, fill: modeColors[i] }));
     });
 
     // Labels
@@ -199,6 +264,6 @@
     pts.forEach(([cx, cy]) => svgEl.appendChild(_svgEl('circle', { cx, cy, r: 1.5, fill: stroke })));
   }
 
-  global.Charts = { drawDriftProfile, drawSpectrum, drawDisplacementProfile, drawModeShapeMini };
+  global.Charts = { drawDriftProfile, drawSpectrum, drawDisplacementProfile, drawModeShapeMini, espectro_nch433 };
 
 }(window));
