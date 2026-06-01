@@ -37,6 +37,7 @@
   let _geomISO  = null;   // {Lx, Ly, H}
   let _geomReal = null;   // {walls, corridor}
   let _paramsSaved = null;
+  let _orthoScale = 1.0;  // factor de zoom para cámara ortográfica (PLANTA)
 
   // ── Orbit controls ──────────────────────────────────────────────────────
   const _orbit = {
@@ -122,8 +123,14 @@
 
     el.addEventListener('wheel', function (e) {
       e.preventDefault();
-      _orbit.radius = Math.max(5, Math.min(600, _orbit.radius * (1 + e.deltaY * 0.001)));
-      _positionCamera();
+      if (currentViewMode === 'planta') {
+        // En ortográfica el zoom escala los bounds, no el radio
+        _orthoScale = Math.max(0.15, Math.min(5.0, _orthoScale * (1 + e.deltaY * 0.0012)));
+        _updateOrthoCamera();
+      } else {
+        _orbit.radius = Math.max(5, Math.min(600, _orbit.radius * (1 + e.deltaY * 0.0015)));
+        _positionCamera();
+      }
     }, { passive: false });
   }
 
@@ -132,12 +139,16 @@
     const tx = _orbitTarget.x, ty = _orbitTarget.y, tz = _orbitTarget.z;
 
     if (currentViewMode === 'planta') {
-      // Cámara ortográfica directamente encima
-      cameraOrtho.position.set(tx, radius * 2, tz);
-      cameraOrtho.lookAt(tx, 0, tz);
+      // Cámara ortográfica desde arriba.
+      // up=(0,0,1) → el eje +Z del mundo queda "arriba" en pantalla,
+      // de modo que el núcleo (mayor y en planta) aparece en la parte superior.
+      cameraOrtho.up.set(0, 0, 1);
+      cameraOrtho.position.set(tx, Math.max(radius * 2, 20), tz);
+      cameraOrtho.lookAt(new THREE.Vector3(tx, 0, tz));
       cameraOrtho.updateProjectionMatrix();
     } else {
       // Cámara perspectiva esférica (ISO y 3D)
+      cameraOrtho.up.set(0, 1, 0);   // restaurar default al salir de planta
       cameraPersp.position.set(
         tx + radius * Math.sin(phi) * Math.sin(theta),
         ty + radius * Math.cos(phi),
@@ -306,6 +317,7 @@
 
     } else if (mode === 'planta') {
       _orbit.phi = 0.02;  // casi desde arriba
+      _orthoScale = 1.0;  // resetear zoom al entrar en vista planta
       _setRealCameraTarget();
       _updateOrthoCamera();
     }
@@ -328,7 +340,7 @@
     const walls = _geomReal.walls;
     const maxX = walls.reduce((m, w) => Math.max(m, w.cx + w.w / 2), 0);
     const maxZ = walls.reduce((m, w) => Math.max(m, w.cy + w.h / 2), 0);
-    const half  = Math.max(maxX, maxZ) * 0.65;
+    const half  = Math.max(maxX, maxZ) * 0.65 * _orthoScale;
     const ar    = renderer ? renderer.domElement.width / renderer.domElement.height : 1;
     cameraOrtho.left   = -half * ar;
     cameraOrtho.right  =  half * ar;
