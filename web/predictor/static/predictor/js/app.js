@@ -270,8 +270,8 @@
     activeMode = idx;
     Building3D.setMode(idx);
 
-    // Cambiar a ISO para que la animación modal sea visible
-    setView('iso');
+    // En PLANTA no hay animación → ir a ISO; en ISO y 3D se anima en la vista actual
+    if (Building3D.getViewMode() === 'planta') setView('iso');
 
     if (state) {
       const T = state.modal.T[idx];

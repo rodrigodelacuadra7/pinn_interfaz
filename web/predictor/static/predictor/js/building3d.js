@@ -168,7 +168,7 @@
     if (lastNow !== null && playing) time += (now - lastNow) / 1000;
     lastNow = now;
 
-    if (currentViewMode === 'iso') _applyDeformation(time % ANIM_DUR);
+    if (currentViewMode === 'iso' || currentViewMode === '3d') _applyDeformation(time % ANIM_DUR);
 
     const cam = currentViewMode === 'planta' ? cameraOrtho : cameraPersp;
     renderer.render(scene, cam);
@@ -218,50 +218,74 @@
   }
 
   function _applyDeformation(t) {
-    if (!isoMeshes.length || !currentPhi || !_geomISO) return;
+    if (!currentPhi) return;
     const phi_x = currentPhi.map(row => row[currentMode] || 0);
     const phi_y = currentPhiY ? currentPhiY.map(row => row[currentMode] || 0) : phi_x.map(() => 0);
     const T1 = window._pinn_state && window._pinn_state.modal ? window._pinn_state.modal.T[currentMode] : 0.7;
     const omega = (2 * Math.PI) / Math.max(T1, 0.05);
     const amp = Math.sin(omega * t) * SCALE_FACTOR;
 
-    // Solo las losas (no el core ni el suelo)
-    const N_pisos = currentPhi.length;
-    isoMeshes.slice(0, N_pisos).forEach((mesh, i) => {
-      const b = mesh.userData.basePos;
-      if (!b) return;
-      mesh.position.x = b.x + phi_x[i] * amp;
-      mesh.position.z = b.z + phi_y[i] * amp;
-    });
+    if (currentViewMode === 'iso') {
+      // Animar losas ISO piso a piso
+      const N = currentPhi.length;
+      isoMeshes.slice(0, N).forEach((mesh, i) => {
+        const b = mesh.userData.basePos;
+        if (!b) return;
+        mesh.position.x = b.x + phi_x[i] * amp;
+        mesh.position.z = b.z + phi_y[i] * amp;
+      });
+    } else if (currentViewMode === '3d') {
+      // Animar segmentos de muros reales piso a piso
+      realMeshes.forEach(mesh => {
+        const b = mesh.userData.basePos;
+        if (!b || mesh.userData.floorIndex === undefined) return;
+        const i = mesh.userData.floorIndex;
+        mesh.position.x = b.x + (phi_x[i] || 0) * amp;
+        mesh.position.z = b.z + (phi_y[i] || 0) * amp;
+      });
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // GEOMETRÍA REAL — muros de familia_B_core
+  // GEOMETRÍA REAL — muros de familia_B_core, segmentados por piso
   // ════════════════════════════════════════════════════════════════════════
-  function _buildRealGeometry(geomReal, H_total) {
+  function _buildRealGeometry(geomReal, N_pisos, h_story) {
     realMeshes.forEach(m => scene.remove(m));
     realMeshes = [];
 
     if (!geomReal || !geomReal.walls || !geomReal.walls.length) return;
 
     const { walls, corridor } = geomReal;
+    const H_total = N_pisos * h_story;
 
-    // Muros extruidos de suelo a techo
     walls.forEach(function (w) {
       const color = GROUP_COLOR[w.group] || 0x888888;
       const edge  = GROUP_EDGE[w.group]  || 0xaaaaaa;
-      const geo = new THREE.BoxGeometry(w.w, H_total, w.h);
-      const mat = new THREE.MeshLambertMaterial({
-        color, transparent: true, opacity: 0.75,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      // plan: x→Three.x, y→Three.z, elevación→Three.y
-      mesh.position.set(w.cx, H_total / 2, w.cy);
-      scene.add(mesh);
-      realMeshes.push(mesh);
+      // Compartir material por grupo para evitar crear N_pisos materiales
+      const mat = new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.80 });
 
-      const eMat = new THREE.LineBasicMaterial({ color: edge });
-      mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), eMat));
+      // Un segmento por piso → permite animar cada piso independientemente
+      for (let i = 0; i < N_pisos; i++) {
+        const geo    = new THREE.BoxGeometry(w.w, h_story, w.h);
+        const mesh   = new THREE.Mesh(geo, mat);
+        const yCtr   = (i + 0.5) * h_story;
+        mesh.position.set(w.cx, yCtr, w.cy);
+        mesh.userData.basePos    = { x: w.cx, y: yCtr, z: w.cy };
+        mesh.userData.floorIndex = i;
+        scene.add(mesh);
+        realMeshes.push(mesh);
+      }
+
+      // Aristas del contorno completo (no se animan, pero son children del
+      // primer segmento — se reconstruyen estáticas para aclarar la forma)
+      const outlineGeo = new THREE.BoxGeometry(w.w, H_total, w.h);
+      const eMat       = new THREE.LineBasicMaterial({ color: edge, transparent: true, opacity: 0.45 });
+      const outline    = new THREE.LineSegments(new THREE.EdgesGeometry(outlineGeo), eMat);
+      outline.position.set(w.cx, H_total / 2, w.cy);
+      outline.userData.basePos    = null;   // no deformar
+      outline.userData.floorIndex = undefined;
+      scene.add(outline);
+      realMeshes.push(outline);
     });
 
     // Corredor — plano horizontal a y=0 semitransparente
@@ -280,8 +304,8 @@
     // Plano de suelo
     const allLx = walls.reduce((m, w) => Math.max(m, w.cx + w.w / 2), 0);
     const allLy = walls.reduce((m, w) => Math.max(m, w.cy + w.h / 2), 0);
-    const gGeo = new THREE.PlaneGeometry(allLx * 1.1, allLy * 1.1);
-    const gMat = new THREE.MeshBasicMaterial({ color: 0x0f1620, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+    const gGeo  = new THREE.PlaneGeometry(allLx * 1.1, allLy * 1.1);
+    const gMat  = new THREE.MeshBasicMaterial({ color: 0x0f1620, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
     const ground = new THREE.Mesh(gGeo, gMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(allLx / 2, 0, allLy / 2);
@@ -362,14 +386,14 @@
 
     // Construir ambas geometrías
     _buildIsoGeometry(geometria, params.N_pisos, params.h_story_m);
-    const H_total = params.N_pisos * params.h_story_m;
-    _buildRealGeometry(geometriaReal, H_total);
+    _buildRealGeometry(geometriaReal, params.N_pisos, params.h_story_m);
 
     // Mostrar solo la geometría del modo activo
     setViewMode(currentViewMode);
   }
 
-  function setMode(modeIdx) { currentMode = modeIdx; }
+  function setMode(modeIdx)  { currentMode = modeIdx; }
+  function getViewMode()     { return currentViewMode; }
 
   function setPlaying(val) { playing = val; }
   function resetTime()     { time = 0; }
@@ -380,6 +404,6 @@
   function int(v) { return parseInt(v, 10); }
   function float(v) { return parseFloat(v); }
 
-  global.Building3D = { init, update, setMode, setViewMode, setPlaying, resetTime, getTime, scrubTo };
+  global.Building3D = { init, update, setMode, getViewMode, setViewMode, setPlaying, resetTime, getTime, scrubTo };
 
 }(window));
