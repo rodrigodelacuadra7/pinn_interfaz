@@ -134,7 +134,7 @@
     svg.appendChild(_svgEl('line', { x1: pL, y1: pT, x2: pL, y2: H - pB, stroke: C.border2 }));
     svg.appendChild(_svgEl('line', { x1: pL, y1: H - pB, x2: W - pR, y2: H - pB, stroke: C.border2 }));
 
-    // Grid T
+    // Grid T (eje X)
     [0, 1, 2, 3, 4].forEach(T => {
       const xp = x(T);
       svg.appendChild(_svgEl('line', { x1: xp, y1: pT, x2: xp, y2: H - pB, stroke: C.border, 'stroke-dasharray': '2 3' }));
@@ -142,6 +142,16 @@
       t.textContent = T.toFixed(1);
       svg.appendChild(t);
     });
+
+    // Grid Y (eje Sa/g) — 5 niveles incluyendo 0
+    for (let i = 0; i <= 4; i++) {
+      const v  = (i / 4) * yMax;
+      const yp = y(v);
+      svg.appendChild(_svgEl('line', { x1: pL, y1: yp, x2: W - pR, y2: yp, stroke: C.border, 'stroke-dasharray': '2 3' }));
+      const t = _svgEl('text', { x: pL - 3, y: yp + 3, fill: C.mute, 'font-size': 8, 'font-family': 'IBM Plex Mono', 'text-anchor': 'end' });
+      t.textContent = v.toFixed(2);
+      svg.appendChild(t);
+    }
 
     // Fill bajo curva de diseño
     const designPts   = Ts.map((T, i) => [T, spec.Sa_design_g[i]]);
