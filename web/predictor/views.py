@@ -10,6 +10,7 @@ from predictor.pinn.inference import predict_edificio
 from predictor.pinn.loader import get_model_and_scalers
 from predictor.pinn.normativa import reporte_normativo
 from predictor.pinn.spectrum import espectro_nch433
+from predictor.pinn.sugerencias import sugerir_modificaciones
 
 _FLOAT_CHOICE_FIELDS = {'gk_kN_m2', 'h_story_m', 't_muro_nucleo_m', 't_muro_borde_m', 't_muro_mid_m'}
 
@@ -80,10 +81,11 @@ def api_predict(request):
 
     try:
         model, SC, device = get_model_and_scalers()
-        res      = predict_edificio(params, model, SC, device)
-        rep      = reporte_normativo(res)
-        T1       = float(res['modal']['T'][0])
-        spectrum = espectro_nch433(params['zona'], params['suelo'], T_star=T1)
+        res          = predict_edificio(params, model, SC, device)
+        rep          = reporte_normativo(res)
+        sugerencias  = sugerir_modificaciones(res, rep, params)
+        T1           = float(res['modal']['T'][0])
+        spectrum     = espectro_nch433(params['zona'], params['suelo'], T_star=T1)
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 
@@ -112,7 +114,8 @@ def api_predict(request):
             'Vb_x': res['respuesta']['Vb_x'],
             'Vb_y': res['respuesta']['Vb_y'],
         },
-        'normativa': rep,
-        'spectrum':  spectrum,
+        'normativa':    rep,
+        'spectrum':     spectrum,
+        'sugerencias':  sugerencias,
     }
     return JsonResponse(payload)

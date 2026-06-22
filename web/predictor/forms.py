@@ -69,7 +69,7 @@ class EdificioForm(forms.Form):
         label='t muro núcleo',
     )
     t_muro_borde_m = forms.TypedChoiceField(
-        choices=[(v, f'{int(v*100)} cm') for v in [0.18, 0.20, 0.22, 0.25, 0.28, 0.30]],
+        choices=[(v, f'{int(v*100)} cm') for v in [0.15, 0.18, 0.20, 0.22, 0.25]],
         coerce=float,
         initial=0.25,
         label='t muro borde',
