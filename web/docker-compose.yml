@@ -4,8 +4,9 @@ services:
     image: pinn-web:local
     container_name: pinn-web
     ports:
-      - "${HOST_PORT:-8000}:8000"
+      - "${HOST_PORT:-8000}:7860"
     environment:
+      - PORT=7860
       - DJANGO_DEBUG=0
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-dev-only-change-me-in-prod}
       - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
