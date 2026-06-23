@@ -140,6 +140,33 @@
     }
   };
 
+  // ── Renderizar sugerencias de mejora ──────────────────────────────────────────
+  function _renderSugerencias(sugerencias) {
+    const wrap = document.getElementById('sugerencias');
+    const list  = document.getElementById('sugerencias-list');
+    if (!wrap || !list) return;
+    if (!sugerencias || sugerencias.length === 0) {
+      wrap.style.display = 'none';
+      return;
+    }
+    const PRIO_COLOR  = { alta: 'var(--danger)', media: 'var(--warn)', baja: 'var(--mute)' };
+    const PRIO_ICON   = { alta: '●', media: '◐', baja: '○' };
+    const PRIO_ORDER  = { alta: 0, media: 1, baja: 2 };
+    const sorted = [...sugerencias].sort((a, b) => PRIO_ORDER[a.prioridad] - PRIO_ORDER[b.prioridad]);
+    list.innerHTML = sorted.map(s => `
+      <div style="display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:10px;color:${PRIO_COLOR[s.prioridad]};flex-shrink:0;line-height:1.6">${PRIO_ICON[s.prioridad]}</div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;font-weight:600;color:${PRIO_COLOR[s.prioridad]}">
+            ${s.accion.toUpperCase()} <code style="font-size:10px">${s.parametro}</code>
+            <span style="font-weight:400;color:var(--mute);margin-left:4px">[${s.prioridad}]</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mute);margin-top:2px;line-height:1.5">${s.razon}</div>
+        </div>
+      </div>`).join('');
+    wrap.style.display = '';
+  }
+
   // ---- Actualizar toda la UI con los resultados ----
   function _updateAll(data) {
     const { modal, respuesta, normativa, spectrum, geometria, params, avisos, extrapolando } = data;
@@ -182,6 +209,9 @@
       verdSub.textContent = sub;
       if (verdCorner) { verdCorner.style.display = ''; verdLabel.textContent = normativa.veredicto; verdLabel.style.color = cumple ? 'var(--accent)' : 'var(--danger)'; }
     }
+
+    // Sugerencias de mejora (solo si NO CUMPLE)
+    _renderSugerencias(normativa.veredicto !== 'CUMPLE' ? data.sugerencias : []);
 
     // Tabla de modos (primeros 18)
     _fillModesTable(modal.T);

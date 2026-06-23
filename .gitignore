@@ -22,6 +22,8 @@ env/
 # ── Django ───────────────────────────────────────────────────
 web/staticfiles/
 web/db.sqlite3
+web/data/*.sqlite3
+web/media/
 
 # ── Docker ───────────────────────────────────────────────────
 # (docker-compose.yml y Dockerfile sí se suben)

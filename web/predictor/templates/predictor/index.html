@@ -173,12 +173,11 @@
           <div class="field" style="margin-bottom:10px">
             <label>Borde</label>
             <div class="seg">
+              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.15">15</button>
               <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.18">18</button>
               <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.20">20</button>
               <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.22">22</button>
               <button class="seg-btn active" data-field="t_muro_borde_m" data-value="0.25">25</button>
-              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.28">28</button>
-              <button class="seg-btn" data-field="t_muro_borde_m" data-value="0.30">30</button>
             </div>
             <input type="hidden" id="field-t_muro_borde_m" value="0.25" />
           </div>
@@ -310,6 +309,14 @@
           <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color:var(--mute)">VEREDICTO NCH433</div>
           <div id="verdict-text" style="font-family:var(--mono); font-size:20px; font-weight:600; margin-top:4px">—</div>
           <div id="verdict-sub" style="font-family:var(--mono); font-size:9px; color:var(--mute); margin-top:4px; line-height:1.6"></div>
+        </div>
+
+        <!-- Sugerencias de mejora (visible solo cuando NO CUMPLE) -->
+        <div id="sugerencias" style="display:none; margin-top:8px; border:1px solid var(--border); background:var(--panel-2)">
+          <div style="padding:8px 12px 4px; font-family:var(--mono); font-size:10px; letter-spacing:0.08em; color:var(--mute)">
+            SUGERENCIAS DE MEJORA <span style="font-weight:400; opacity:.6">(orientaciones físicas — verificar con predicción)</span>
+          </div>
+          <div id="sugerencias-list" style="padding:0 12px 10px"></div>
         </div>
       </div>
 

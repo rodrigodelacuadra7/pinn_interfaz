@@ -8,6 +8,11 @@ DEBUG = os.environ.get('DJANGO_DEBUG', '1') == '1'
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
     'django.contrib.staticfiles',
     'predictor.apps.PredictorConfig',
 ]
@@ -15,8 +20,11 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -30,6 +38,8 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
@@ -37,18 +47,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'pinn_web.wsgi.application'
 
-DATABASES = {}
+# Base de datos SQLite persistente (sobreescribible por env)
+_default_db = BASE_DIR / 'data' / 'db.sqlite3'
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': Path(os.environ.get('DJANGO_DB_PATH', str(_default_db))),
+    }
+}
 
 LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Rutas al modelo y scalers (pueden ser absolutas vía env, o relativas al repo raíz)
+# Archivos subidos por el admin (modelos PINN)
+_default_media = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = Path(os.environ.get('DJANGO_MEDIA_ROOT', str(_default_media)))
+
+# Rutas al modelo y scalers — fallback si no hay registro activo en la DB
 _default_model = BASE_DIR.parent / 'model_fase2_seed2718.pt'
 _default_scalers = BASE_DIR.parent / 'scalers_trial16.pkl'
 MODEL_PATH = Path(os.environ.get('MODEL_PATH', str(_default_model)))

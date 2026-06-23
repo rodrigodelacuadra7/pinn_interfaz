@@ -13,8 +13,9 @@ Dado un edificio con sus características geométricas y de materiales, la aplic
 - **Derivas de entrepiso** — el indicador clave de daño estructural (δx y δy por piso).
 - **Corte basal** — la fuerza sísmica total que actúa sobre la estructura (Vb,x y Vb,y).
 - **Veredicto NCh433** — si el edificio **CUMPLE** o **NO CUMPLE** el límite de deriva ≤ 0.002.
+- **Sugerencias de mejora** — cuando el edificio no cumple, la aplicación indica qué parámetros modificar y por qué, con base en la mecánica estructural de la Familia B.
 
-La predicción usa un modelo de red neuronal pre-entrenado (`PINNModal_v4b`, 1.377.064 parámetros, Fase 2, semilla 2718) calibrado para edificios de **6 a 18 pisos**, suelos tipo A/B/C/D y zonas sísmicas 1/2/3.
+La predicción usa un modelo de red neuronal pre-entrenado (`PINNModal_v4b`, 1.377.064 parámetros, Fase 2 definitivo) calibrado para edificios de **6 a 18 pisos**, suelos tipo A/B/C/D y zonas sísmicas 1/2/3.
 
 ---
 
@@ -22,13 +23,17 @@ La predicción usa un modelo de red neuronal pre-entrenado (`PINNModal_v4b`, 1.3
 
 ```
 pinn_interfaz/
-├── model_fase2_seed2718.pt       ← Pesos del modelo PINN (5.3 MB)
-├── scalers_trial16.pkl           ← Estadísticas de normalización
+├── model_fase2_seed2718.pt       ← Pesos fallback (usados si no hay registro en admin)
+├── scalers_trial16.pkl           ← Scalers fallback
 ├── Interfaz_PINN_FamiliaB.ipynb  ← Notebook original (referencia técnica)
-├── Interfaz-handoff/             ← Diseño visual de referencia (UI)
+├── update/                       ← Archivos actualizados del modelo
+│   ├── model_fase2_definitivo.pt
+│   ├── scalers_trial16_DEFINITIVO.pkl
+│   └── Interfaz_PINN_FamiliaB_update.ipynb
 └── web/                          ← Aplicación web Django (lo que debes ejecutar)
     ├── Dockerfile
     ├── docker-compose.yml
+    ├── seed/                     ← Copia de los archivos que se siembran al primer arranque
     └── ...
 ```
 
@@ -63,7 +68,7 @@ En Windows puedes hacer clic derecho sobre la carpeta `web` y elegir "Abrir en T
 cd C:\Users\rodri\OneDrive\Desktop\pinn_interfaz\web
 ```
 
-### 2. Construye la imagen Docker (solo la primera vez)
+### 2. Construye la imagen Docker (solo la primera vez o cuando hay cambios en el código)
 
 ```bash
 docker compose build
@@ -74,10 +79,15 @@ Esto descarga e instala todas las dependencias dentro de un contenedor aislado. 
 ### 3. Inicia la aplicación
 
 ```bash
-docker compose up
+docker compose up -d
 ```
 
-Cuando veas en la terminal algo como:
+Al arrancar, el contenedor ejecuta automáticamente:
+1. `collectstatic` — empaqueta los archivos estáticos.
+2. `migrate` — crea la base de datos SQLite.
+3. `seed_modelo` — registra el modelo PINN inicial en el admin (solo si no existe ninguno aún).
+
+Cuando veas en los logs (`docker compose logs -f`) algo como:
 
 ```
 [INFO] Booting worker with pid: ...
@@ -90,13 +100,40 @@ La aplicación está lista. Abre tu navegador y ve a:
 http://localhost:8000
 ```
 
-### 4. Para detener la aplicación
+### 4. (Primera vez) Crea el superusuario para acceder al admin
 
-Presiona `Ctrl + C` en la terminal, o desde otra terminal:
+```bash
+docker compose exec pinn-web python manage.py createsuperuser
+```
+
+Sigue las instrucciones para definir usuario, email y contraseña. Luego accede al panel de administración en:
+
+```
+http://localhost:8000/admin
+```
+
+### 5. Para detener la aplicación
 
 ```bash
 docker compose down
 ```
+
+Los datos (base de datos y modelos subidos) **se conservan** en volúmenes Docker entre reinicios.
+
+---
+
+## Actualizar el modelo PINN desde el admin
+
+El archivo `.pt` (pesos) y el `.pkl` (scalers) ya no necesitan modificarse a mano en el código. Se gestionan directamente desde el panel de administración:
+
+1. Entra a `http://localhost:8000/admin` con tu superusuario.
+2. Haz clic en **Modelos PINN**.
+3. Sube un nuevo registro: nombre descriptivo, archivo `.pt` y archivo `.pkl`.
+4. Marca el nuevo registro como **activo**.
+
+El servidor detecta el cambio automáticamente en la siguiente predicción — sin reiniciar el contenedor.
+
+> **Nota:** Solo puede haber un modelo activo a la vez. Al marcar uno nuevo, el anterior se desactiva automáticamente.
 
 ---
 
@@ -136,6 +173,7 @@ Muestra los outputs numéricos de la predicción:
 
 - **KPIs**: T₁, T₂, desplazamiento máximo en techo, deriva máxima, cortes basales Vb,x y Vb,y.
 - **Veredicto NCh433**: CUMPLE (verde) o NO CUMPLE (rojo), con razones del fallo si aplica.
+- **Sugerencias de mejora** (solo cuando NO CUMPLE): orientaciones físicas sobre qué parámetros modificar para reducir las derivas, ordenadas por prioridad (alta / media / baja).
 - **Tabla de modos**: los 18 períodos predichos con sus frecuencias y frecuencias angulares. Haz clic en cualquier fila para ver ese modo animado en el 3D.
 - **Formas modales**: miniaturas de las primeras 6 formas modales reales (calculadas por el PINN). Clic para seleccionar.
 - **Perfil de desplazamientos Ux / Uy**: desplazamiento absoluto de cada piso.
@@ -159,7 +197,7 @@ El modelo PINN fue entrenado con edificios dentro de estos rangos. Predicciones 
 | Resistencia hormigón fc | 25 / 30 / 35 / 40 MPa |
 | Carga de piso gk | 6.0 / 6.5 / 7.0 / 7.5 kN/m² |
 | Espesor muro núcleo | 18 / 20 / 22 / 25 / 28 / 30 cm |
-| Espesor muro borde | 18 / 20 / 22 / 25 / 28 / 30 cm |
+| Espesor muro borde | 15 / 18 / 20 / 22 / 25 cm |
 | Espesor muro interior | 15 / 18 / 20 / 22 / 25 cm |
 | Tipo de suelo | A / B / C / D |
 | Zona sísmica | 1 / 2 / 3 |
@@ -178,7 +216,7 @@ El notebook original (`Interfaz_PINN_FamiliaB.ipynb`) tiene 11 celdas con códig
 |---|---|---|
 | **Celda 0** | Constantes de configuración: `MODEL_PATH`, `SCALERS_PATH`, `DRIFT_LIMIT_NCh433` | `pinn_web/settings.py` (rutas via env vars) y `predictor/pinn/domain.py` (constantes) |
 | **Celda 1** | Clases `ResBlock` y `PINNModal_v4` (arquitectura de la red neuronal) | `predictor/pinn/model.py` — copiado sin cambios |
-| **Celda 2** | Carga de pesos (`torch.load`) y scalers (`pickle.load`), variables globales `model`, `SC`, `device` | `predictor/pinn/loader.py` — convertido a singleton lazy; `predictor/apps.py` llama al loader al arrancar el servidor |
+| **Celda 2** | Carga de pesos (`torch.load`) y scalers (`pickle.load`), variables globales `model`, `SC`, `device` | `predictor/pinn/loader.py` — busca el registro activo en la DB del admin; fallback a paths de settings; `predictor/apps.py` llama al loader al arrancar el servidor |
 | **Celda 3** | Dict `DOMAIN` con rangos de cada parámetro y función `validar_dominio()` | `predictor/pinn/domain.py` |
 | **Celda 4** | Constructores `edificio_experto()` y `edificio_simple()` con `DEFAULTS_SIMPLE` | `predictor/pinn/domain.py` (constantes de defaults) y `predictor/forms.py` (validación en Django) |
 | **Celda 5** | Función `construir_X(params)` → vector de 21 features + máscara de pisos | `predictor/pinn/features.py` — adaptada para recibir `COLS_BASE` como argumento en vez de variable global |
@@ -187,6 +225,7 @@ El notebook original (`Interfaz_PINN_FamiliaB.ipynb`) tiene 11 celdas con códig
 | **Celda 8** | `reporte_normativo(res)` — verifica derivas y período contra límites NCh433 | `predictor/pinn/normativa.py` — copiada sin cambios |
 | **Celda 9** | `graficar_resultados(res, rep)` — dashboard matplotlib con 4 subplots | Reemplazado por `predictor/static/predictor/js/charts.js` (SVG puro: drift vs piso, espectro NCh433, desplazamientos) |
 | **Celda 10** | Ejemplo de uso: construye parámetros, llama predict, imprime y grafica | `predictor/views.py` (`api_predict`) + `predictor/static/predictor/js/app.js` (orquesta la UI) |
+| **Celda 11** | `sugerir_modificaciones()` — orientaciones físicas de mejora cuando NO cumple | `predictor/pinn/sugerencias.py` — portado sin la parte de impresión por consola |
 
 #### Cambios de diseño respecto al notebook
 
@@ -204,6 +243,9 @@ resultado = predict_edificio(params, model, SC, device)
 
 Esto permite que el servidor cargue el modelo una sola vez (`loader.py`) y lo reutilice en todas las peticiones sin recargarlo.
 
+**Recarga automática sin reiniciar el contenedor**
+El `loader.py` calcula una firma de identidad del modelo activo (usando el `pk` y el `updated_at` del registro en la base de datos). En cada petición, si la firma cambió (porque se subió y activó un nuevo modelo desde el admin), el worker recarga automáticamente — sin reiniciar gunicorn ni el contenedor.
+
 **Matplotlib (server-side) → SVG + Three.js (client-side)**
 Los gráficos del notebook generan imágenes PNG con matplotlib en el servidor. En la app web, todos los gráficos se dibujan en el navegador: el edificio 3D con Three.js usando las formas modales reales Φ del PINN, y los gráficos 2D con SVG puro. Ventajas: sin dependencia de matplotlib en producción, gráficos interactivos y animados.
 
@@ -218,7 +260,9 @@ El flujo del notebook (definir parámetros → ejecutar celdas en orden → ver 
 |---|---|
 | Backend | Django 4.2 + Gunicorn |
 | Modelo PINN | PyTorch 2.4 (CPU) |
+| Base de datos | SQLite (persistida en volumen Docker) |
 | Archivos estáticos | WhiteNoise |
+| Archivos media | Volumen Docker (`pinn-media`) |
 | Frontend 3D | Three.js r160 |
 | Gráficos 2D | SVG puro (sin librerías) |
 | Contenedor | Docker (Python 3.11-slim) |
@@ -228,18 +272,28 @@ El flujo del notebook (definir parámetros → ejecutar celdas en orden → ver 
 ```
 web/
 ├── Dockerfile                    ← Imagen Python 3.11 + torch CPU
-├── docker-compose.yml            ← Servicio en puerto 8000
-├── entrypoint.sh                 ← collectstatic → gunicorn
+├── docker-compose.yml            ← Servicio en puerto 8000, volúmenes pinn-db y pinn-media
+├── entrypoint.sh                 ← collectstatic → migrate → seed_modelo → gunicorn
 ├── requirements.txt
 ├── manage.py
+├── seed/                         ← Archivos PINN que se registran al primer arranque
+│   ├── model_fase2_definitivo.pt
+│   └── scalers_trial16_DEFINITIVO.pkl
+├── data/                         ← Carpeta del volumen pinn-db (SQLite)
 ├── pinn_web/
-│   ├── settings.py               ← MODEL_PATH y SCALERS_PATH via env vars
-│   ├── urls.py
+│   ├── settings.py               ← INSTALLED_APPS completo, SQLite, MEDIA_ROOT, MODEL_PATH fallback
+│   ├── urls.py                   ← / + /api/predict + /admin/
 │   └── wsgi.py
 └── predictor/
     ├── apps.py                   ← Precarga el modelo una sola vez al arrancar
     ├── forms.py                  ← Validación de los 16 parámetros
-    ├── views.py                  ← GET / y POST /api/predict
+    ├── models.py                 ← ModeloPINN: FileField para .pt y .pkl, flag activo
+    ├── admin.py                  ← Panel admin para subir y activar modelos PINN
+    ├── views.py                  ← GET / y POST /api/predict (incluye sugerencias)
+    ├── migrations/
+    │   └── 0001_initial.py
+    ├── management/commands/
+    │   └── seed_modelo.py        ← Siembra el modelo inicial desde seed/ (idempotente)
     ├── pinn/
     │   ├── model.py              ← Arquitectura PINNModal_v4 (ResBlock)
     │   ├── domain.py             ← DOMAIN dict y validar_dominio()
@@ -247,13 +301,14 @@ web/
     │   ├── inference.py          ← predict_edificio()
     │   ├── normativa.py          ← reporte_normativo() NCh433
     │   ├── spectrum.py           ← Espectro NCh433 analítico
-    │   └── loader.py             ← Singleton de carga del modelo
+    │   ├── sugerencias.py        ← sugerir_modificaciones() cuando NO CUMPLE
+    │   └── loader.py             ← Singleton con recarga automática por firma
     ├── templates/predictor/
-    │   └── index.html            ← Layout 3 columnas
+    │   └── index.html            ← Layout 3 columnas + contenedor #sugerencias
     └── static/predictor/
         ├── css/styles.css        ← Tema dark (IBM Plex Mono/Sans)
         └── js/
-            ├── app.js            ← Orquesta UI y fetch /api/predict
+            ├── app.js            ← Orquesta UI, fetch /api/predict y renderiza sugerencias
             ├── building3d.js     ← Edificio 3D con deformada modal real
             └── charts.js         ← Gráficos SVG (drift, espectro, desplazamientos)
 ```
@@ -267,25 +322,33 @@ Recibe un JSON con los 16 parámetros del edificio y devuelve:
 ```json
 {
   "modal": {
-    "T": [0.712, 0.243, ...],
-    "Phi_x": [[...], ...],
-    "Phi_y": [[...], ...]
+    "T": [0.712, 0.243, "..."],
+    "Phi_x": [["..."], "..."],
+    "Phi_y": [["..."], "..."]
   },
   "respuesta": {
-    "Ux_por_piso": [...],
-    "Uy_por_piso": [...],
-    "dx_por_piso": [...],
-    "dy_por_piso": [...],
+    "Ux_por_piso": ["..."],
+    "Uy_por_piso": ["..."],
+    "dx_por_piso": ["..."],
+    "dy_por_piso": ["..."],
     "Vb_x": 1234567.8,
     "Vb_y": 987654.3
   },
   "normativa": {
-    "veredicto": "CUMPLE",
+    "veredicto": "NO CUMPLE",
     "deriva_x_max": 0.00134,
     "piso_dx_max": 5,
-    ...
+    "razones_fallo": ["..."]
   },
-  "spectrum": [[0.02, 0.18], [0.04, 0.22], ...]
+  "spectrum": { "T": ["..."], "Sa_design_g": ["..."] },
+  "sugerencias": [
+    {
+      "parametro": "t_muro_nucleo_m",
+      "accion": "aumentar",
+      "razon": "La deriva máxima en Y excede...",
+      "prioridad": "alta"
+    }
+  ]
 }
 ```
 
@@ -296,19 +359,22 @@ Recibe un JSON con los 16 parámetros del edificio y devuelve:
 | `DJANGO_SECRET_KEY` | Clave secreta Django | valor de dev (cambiar en prod) |
 | `DJANGO_DEBUG` | Modo debug (`1`/`0`) | `0` en Docker |
 | `DJANGO_ALLOWED_HOSTS` | Hosts permitidos | `localhost,127.0.0.1` |
-| `MODEL_PATH` | Ruta al archivo `.pt` | `/models/model_fase2_seed2718.pt` |
-| `SCALERS_PATH` | Ruta al archivo `.pkl` | `/models/scalers_trial16.pkl` |
+| `DJANGO_DB_PATH` | Ruta al archivo SQLite | `<app>/data/db.sqlite3` |
+| `DJANGO_MEDIA_ROOT` | Directorio para archivos subidos por admin | `<app>/media/` |
+| `MODEL_PATH` | Ruta fallback al `.pt` (si no hay registro activo en DB) | `/models/model_fase2_seed2718.pt` |
+| `SCALERS_PATH` | Ruta fallback al `.pkl` (si no hay registro activo en DB) | `/models/scalers_trial16.pkl` |
 
 ### Ejecución en desarrollo local (sin Docker)
 
-Requiere Python 3.10+ con `pip`:
+Requiere Python 3.11+ con `pip`:
 
 ```bash
 cd web/
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
-set MODEL_PATH=..\model_fase2_seed2718.pt
-set SCALERS_PATH=..\scalers_trial16.pkl
+python manage.py migrate
+python manage.py seed_modelo
+python manage.py createsuperuser
 python manage.py runserver
 ```
 
@@ -323,7 +389,10 @@ Menos de 1 segundo en CPU. El modelo se carga una sola vez al iniciar el servido
 No. La aplicación usa PyTorch en modo CPU, que es más que suficiente para inferencia con este modelo.
 
 **¿Puedo cambiar el modelo por una versión más nueva?**
-Sí. Reemplaza `model_fase2_seed2718.pt` y `scalers_trial16.pkl` en la raíz del repositorio. No es necesario reconstruir la imagen Docker porque los archivos se montan como volúmenes.
+Sí, sin tocar ningún archivo ni reiniciar el contenedor. Entra al admin (`/admin`), sube los nuevos archivos `.pt` y `.pkl` en un nuevo registro **Modelo PINN** y márcalo como activo. El servidor lo recarga automáticamente en la siguiente predicción.
+
+**¿Qué pasa si pierdo el contenedor Docker?**
+Los modelos subidos y la base de datos viven en volúmenes Docker nombrados (`pinn-db`, `pinn-media`). Sobreviven a `docker compose down/up`. Solo se pierden con `docker compose down -v`.
 
 **¿Qué significa "FAMILIA B"?**
 Familia B es una tipología de edificios residenciales chilenos de hormigón armado con núcleo central y departamentos a ambos lados de un corredor central. El PINN fue entrenado exclusivamente para esta tipología.
@@ -331,12 +400,15 @@ Familia B es una tipología de edificios residenciales chilenos de hormigón arm
 **¿Qué norma evalúa?**
 Evalúa la **NCh433 Of.1996 Modificada 2009** (Diseño Sísmico de Edificios) junto con el **DS61** de 2011, verificando el límite de deriva de entrepiso ≤ 0.002.
 
+**¿Las sugerencias de mejora son predicciones del PINN?**
+No. Son orientaciones cualitativas basadas en la mecánica estructural de la tipología Familia B (qué muros controlan cada dirección de deriva). Cualquier modificación debe re-evaluarse con el botón **▶ PREDECIR**, y los diseños finales verificarse con análisis estructural completo.
+
 ---
 
 ## Créditos
 
 Modelo PINN desarrollado como parte de un proyecto de investigación de metamodelado estructural para la familia de edificios residenciales tipo B en Chile.
 
-- **Modelo**: `PINNModal_v4b — Fase 2, semilla 2718`
+- **Modelo**: `PINNModal_v4b — Fase 2 definitivo`
 - **Parámetros**: 1.377.064
 - **Framework**: PyTorch 2.x + Django 4.2

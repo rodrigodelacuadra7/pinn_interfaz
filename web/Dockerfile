@@ -20,11 +20,21 @@ RUN pip install --index-url https://download.pytorch.org/whl/cpu \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Código de la aplicación
-COPY . /app/
+# Hugging Face Spaces ejecuta el contenedor como UID 1000
+RUN useradd -m -u 1000 user
 
+# Código de la aplicación (propiedad del usuario no-root)
+COPY --chown=user . /app/
+
+# Directorios escribibles en runtime; se crean aquí mientras aún somos root
+RUN mkdir -p /app/data /app/media /app/staticfiles \
+    && chown -R user:user /app/data /app/media /app/staticfiles
+
+# Red de seguridad para saltos de línea CRLF (desarrollo en Windows)
 RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-EXPOSE 8000
+USER user
+
+EXPOSE 7860
 
 ENTRYPOINT ["/app/entrypoint.sh"]
